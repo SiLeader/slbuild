@@ -5,7 +5,7 @@ CXX		= clang++
 LINK	= lld
 AR		= ar
 
-CXXFLAG	= -std=c++14 -c
+CXXFLAG	= -std=c++11 -c
 ARFLAG	= rcs
 
 INC		= ../include
