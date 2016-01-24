@@ -4,8 +4,9 @@
 
 #include"loader.hpp"
 #include"utility.hpp"
+#include"commands.hpp"
+#include"build.hpp"
 
-#include<boost/thread.hpp>
 #include<boost/filesystem.hpp>
 #include<boost/foreach.hpp>
 
@@ -14,7 +15,6 @@
 #include<thread>
 #include<cstdlib>
 
-#define foreach BOOST_FOREACH
 
 namespace fs=boost::filesystem;
 
@@ -53,93 +53,22 @@ inline void ShowHelp(void)
 		<<"    help    : show all commands."<<std::endl;
 }
 
-/*void Compile(bool isRebuild,
-	slbuild::config::build_conf& bc,
-	fs::recursive_directory_iterator start,
-	fs::recursive_directory_iterator end,
-	std::time_t bin_time)
-{
-	std::time_t src_time;
-	std::string filename, ext;
-	
-	for(; start!=end; ++start){
-		filename=start->path().filename().string();
-		ext=start->path().extension().string();
-		slbuild::utility::replace(ext, ".", "");
-		
-		std::system((bc.compilers[ext]+" "+filename).c_str());
-	}
-}*/
-
-void Compile(bool isRebuild, const slbuild::config::build_conf& bc, fs::path p, std::time_t bin_time)
-{
-	
-}
-
-void Build(bool isRebuild, slbuild::config::build_conf& bc, const int proc_count)
-{
-	std::vector<std::thread> th;
-	
-	fs::path bin("bin/"+bc.bin_name);
-	auto bin_time=fs::last_write_time(bin);
-	
-	fs::recursive_directory_iterator last;
-	std::size_t file_count=0;
-	/*
-	for(fs::recursive_directory_iterator itr("."); itr != last; ++itr){
-		if(!fs::is_directory(itr->path()))++file_count;
-	}*/
-	foreach(const fs::path& p, std::make_pair(fs::recursive_directory_iterator(fs::path(fs::current_path())), fs::recursive_directory_iterator())){
-		if(!fs::is_directory(p)) ++file_count;
-	}
-	
-	//if(proc_count!=1){//Not Single Thread Processor
-		std::size_t file_per_thread=file_count/proc_count;
-		
-#		pragma omp parallel for schedule(guided)
-		foreach(const fs::path& p, std::make_pair(fs::recursive_directory_iterator(fs::path(fs::current_path())), fs::recursive_directory_iterator())){
-			if(!fs::is_directory(p)){
-				Compile(isRebuild, bc, p, bin_time);
-			}
-		}
-		/*
-		auto fitr=fs::recursive_directory_iterator(fs::current_path());
-		for(int c=0; c<proc_count; c++){
-			th.push_back(std::thread(Compile, isRebuild,
-				bc,
-				fitr+(file_per_thread*c),
-				fitr+(file_per_thread*(c+1)<file_count ? file_per_thread*(c+1) : file_count),
-				bin_time));
-		}*/
-	/*
-	}else{
-		Compile(isRebuild,
-			bc,
-			fs::recursive_directory_iterator(fs::current_path()),
-			fs::recursive_directory_iterator(fs::current_path())+file_count,
-			bin_time);
-	}*/
-	
-	for(auto&& t : th){
-		t.join();
-	}
-}
-
-void Clean(void)
-{
-	
-}
-
 int main(void)
 {
-	std::cout<<"SiLeader slbuild (Build : "<<__TIME__<<" )"<<std::endl;
+	std::cout<<"SiLeader slbuild (Build Name:"<<__TIME__<<")\n"<<std::endl;
 	
 	slbuild::config::build_conf bc;
-	slbuild::config::FileManage fm(bc);
+	slbuild::config::LoadSettings(bc);
+	
+	std::size_t bin_time=0;
+	if(slbuild::utility::IsFileExist("bin/"+bc.bin_name)){
+		fs::path bin("bin/"+bc.bin_name);
+		bin_time=fs::last_write_time(bin);
+	}
 	
 	ShowSettingOverview(bc);
 	
-	auto proc_count=boost::thread::hardware_concurrency();
+	auto proc_count=std::thread::hardware_concurrency();
 	std::cout<<"\nCount of Logical Processors : "<<proc_count<<std::endl;
 	
 	std::string command;
@@ -149,17 +78,22 @@ int main(void)
 		std::cin>>command;
 		
 		if(command=="help"){
+			ShowHelp();
 			
 		}else if(command=="build"){
-			Build(false, bc, proc_count);
+			Build(false, bc, proc_count, bin_time);
 			
 		}else if(command=="rebuild"){
-			Build(true, bc, proc_count);
+			Build(true, bc, proc_count, bin_time);
 			
 		}else if(command=="clean"){
 			Clean();
 			
-		}else{
+		}else if(command=="reload"){
+			slbuild::config::LoadSettings(bc);
+			slbuild::config::LoadDependency(bc);
+			
+		}else if(command!="exit"){
 			std::cerr<<"Error : Unknown command"<<std::endl;
 			
 		}

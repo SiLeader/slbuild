@@ -1,0 +1,10 @@
+inc=.
+lib=boost_filesystem
+lib=boost_system
+lib=c++
+
+cpp=clang++
+cxx=g++
+c=clang
+linker=clang++
+src=.
